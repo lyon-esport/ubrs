@@ -1,0 +1,81 @@
+<!DOCTYPE>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/xhtml; charset=utf-8" />
+        <title>UDP-Broadcast-Relay Supervisor</title>
+        <link rel="icon" type="image/png" href="{{ static_url("lyon_esport.ico") }}" />
+        <link title="style" type="text/css" rel="stylesheet" href="{{ static_url("default.css") }}" media="screen, projector" />
+    </head>
+    <body>
+        <h1>UDP Broadcast Relay Supervisor</h1>
+        Bienvenue sur l'interface de gestion du serveur de relay du broadcast UDP.
+
+        <h2>Configuration des interfaces</h2>
+        <div id="liste_if">
+            <form method="GET" action="/if/setoam" id="oam_form">
+                1. Sélectionner l'interface d'administration :
+                <select name="ifname">
+                    {% if oam == "" %}<option value=""></option>{% end %}
+                    {% for i in system_ifaces %}
+                            <option {% if i == oam %}selected="selected"{% end %} value="{{ i }}">{{ i  }} ({{ system_ifaces[i] }})</option>
+                    {% end %}
+                </select>
+                <input type="submit" value="Appliquer" />
+            </form>
+
+            {% if oam != "" %}
+            <form method="GET" action="/if/settrunk" id="trunk_form">
+                2. Sélectionner l'interface trunk :
+                <select name="ifname">
+                    {% if trunk == "" %}<option value=""></option>{% end %}
+                    <option value='' {% if trunk == "" %}selected="selected"{% end %}> </option>
+                    {% for i in system_ifaces %}
+                            <option {% if i == trunk %}selected="selected"{% end %} value="{{ i }}">{{ i }} ({{ system_ifaces[i] }})</option>
+                    {% end %}
+                </select>
+                <input type="submit" value="Appliquer" />
+            </form>
+            {% end %}
+
+            {% if trunk != "" %}
+            3. Liste des interfaces virtuelles:
+            <table>
+                <tr><th>Nom</th><th>VLAN</th><th>IP</th><th>Masque</th><th></th></tr>
+                {% for i in ifaces %}
+                    <tr><td>{{ i.name }}</td><td>{{ i.vlan }}</td><td>{{ i.ip }}</td><td>{{ i.mask }}</td><td><a href="/if/remove?vlan={{ i.vlan }}" title="Supprimer l'interface {{ i.name }}"><input type="button" value="Supprimer" /></a></td></tr>
+                {% end %}
+                    <form action="/if/add" method="GET">
+                        <tr><td><input type="text" readonly="readonly" value="{{ trunk }}." class="readonly" id="namefield"/></td><td><input type="text" value="" name="vlan" oninput="document.getElementById('ipfield').value = '{{ config.DEFAULT_VLAN_IP }}'.replace('%d', this.value);document.getElementById('namefield').value = '{{ trunk }}.' + this.value;" /></td><td><input type="text" value="" name="ip" id="ipfield" maxlength="15" /></td><td><input type="text" value="{{ config.DEFAULT_VLAN_MASK }}" name="mask" maxlength="15" /></td><td><input type="submit" value="Créer" /></td></tr>
+                    </form>
+            </table>
+            {% end %}
+        </div>
+
+        {% if ifaces != [] %}
+        <h2>Configuration des ports</h2>
+        <div id="liste_port">
+            1. Ajouter un nouveau port :
+            <form method="GET" action="/port/add">
+                UDP/<input type='text' maxlength='5' value='' name='port' style="width: 45px" />
+                Jeux: <input type='text' value='' name='game' />
+                <input type='submit' value='Ajouter' />
+            </form>
+            <br />
+            2. Liste des ports relayés:
+            <ul>
+                {% for p in ports %}
+                    {% if p.is_relayed() %}
+                        <li>{{ p }} <a href='/port/stop?port={{ p.port }}' title="arrêter" ><img src="{{ static_url("stop.jpg") }}" width="20" /></a></li>
+                    {% else %}
+                        <li>{{ p }} <a href='/port/start?port={{ p.port }}' title="démarrer"><img src="{{ static_url("start.png") }}" width="20" /></a></li>
+                    {% end %}
+                {% end %}
+            </ul>
+
+        </div>
+        {% end %}
+<!--        <script type="text/javascript">
+            //window.onload = function() { document.forms["trunk_form"].reset(); };
+        </script>-->
+    </body>
+</html>
