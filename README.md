@@ -8,4 +8,4 @@ Made for and by Lyon e-Sport - www.lyon-esport.fr.
 - python-netifaces (https://pypi.python.org/pypi/netifaces)
 
 ### Author ###
-rarenlys - etienne.corpg@gmail.com
+rarenlys - etienne.glossi@lyon-esport.fr
