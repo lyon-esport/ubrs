@@ -1,6 +1,6 @@
 # README #
 
-Made for Lyon e-Sport - www.lyon-esport.fr.
+Made for and by Lyon e-Sport - www.lyon-esport.fr.
 
 ### Requirements ###
 - udp-broadcast-relay (https://github.com/nomeata/udp-broadcast-relay/)
