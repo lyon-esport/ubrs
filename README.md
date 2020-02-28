@@ -16,15 +16,21 @@ webserver on port 80 by default.
 
 ## Usage
 
-Start it as a daemon (will be executed in background):
+1. Start the webserver:
+    * as a daemon (will be executed in background): `sudo python3 ubrs.py start`
+    * in foreground for debug/ `sudo python3 ubrs.py`
 
-`sudo python3 ubrs.py start`
+2. Connect to the web interface (see config.py)
 
-Use `stop` to stop it.
+3. Select the OAM interface use for the administration. It will be excluded from the relay.
 
-Start in foreground for debug:
+4. Select the trunk interface that will receive UDP broadcast
 
-`sudo python3 ubrs.py`
+5. Create as many interfaces as vlans
+
+6. Add UDP port. Broadcast messages will be relayed on all the interfaces.
+
+If you add a new interface, existing port will be updated dynamically to relay traffic on the new VLAN.
 
 ## Author
 rarenlys - etienne.glossi@lyon-esport.fr
