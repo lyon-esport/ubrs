@@ -1,4 +1,3 @@
-#!/usr/bin/env python2.6
 # -*- encoding: utf-8 -*-
 #
 # Etienne Glossi - Avril 2012 - etienne.glossi@gmail.com
@@ -9,6 +8,7 @@ import os
 import config
 import subprocess
 import netifaces
+import ipaddress
 from time import sleep
 
 # Relay
@@ -109,6 +109,10 @@ class Relay:
     def get_ifaces(self):
         return self.ifaces.values()
 
+    def stop_and_clean(self):
+        self.stop_ports()
+        self.ifaces.clear()
+
     @staticmethod
     def netifaces():
         return dict((i, netifaces.ifaddresses(i)[netifaces.AF_INET][0]['addr']) for i in netifaces.interfaces() if '.' not in i)
@@ -164,9 +168,9 @@ class Port:
             return False
         if not self.is_relayed():
             self._ifaces = relay.get_ifaces()
-            print [relay.path, str(self.__id), str(self.port), str(relay.oam())] + [i.name for i in self._ifaces]
+            print([relay.path, str(self.__id), str(self.port), str(relay.oam())] + [i.name for i in self._ifaces])
             self._proc = subprocess.Popen([relay.path, str(self.__id), str(self.port), str(relay.oam())] + [i.name for i in self._ifaces])
-            print "lancee sur", ','.join([i.name for i in self._ifaces] + [relay.oam()])
+            print("lancee sur", ','.join([i.name for i in self._ifaces] + [relay.oam()]))
             sleep(1) #afin d'etre sur qu'il s'est lancé
         return self.is_relayed()
 
@@ -174,7 +178,7 @@ class Port:
         """ Arrête le broadcast-relay sur le port. """
         if self.is_relayed():
             self._proc.terminate()
-        print "stop", self
+        print("stop", self)
         sleep(1) #afin d'etre sur qu'il s'est arreté
         return not self.is_relayed()
 
@@ -203,15 +207,19 @@ class Interface:
         self.vlan = vlan
         self.ip = ip if ip else config.DEFAULT_VLAN_IP % vlan
         self.mask = mask if mask else config.DEFAULT_VLAN_MASK
+        self.broadcast = ipaddress.IPv4Network("{}/{}".format(self.ip, self.mask), strict=False).broadcast_address.exploded
         self.name = name
         if not self.__initialize():
             raise SystemError("Impossible de creer l'interface %s (VLAN %d): %s / %s" % (self.name, self.vlan, self.ip, self.mask))
 
     def __del__(self):
         """ Supprimer l'interface. """
-        print "del", self
-        if self.vlan > 0:
-            p = subprocess.Popen(["vconfig", "rem", self.name])
+        if self.vlan == 0 or self.vlan == config.OAM_VLAN:
+            return
+        cmd = "ip link delete {}".format(self.name)
+        print(cmd)
+        p = subprocess.Popen(cmd.split(" "))
+        #p.wait()
 
     def __str__(self):
         return "%s (%s/%d)" % (self.name, self.ip, Interface.mask_len(self.mask))
@@ -227,11 +235,28 @@ class Interface:
             self.mask = "0.0.0.0"
         else :
             self.name = Interface._trunk_if.name + ".%d" % (self.vlan)
+            # on supprime l'interface si elle existe deja
+            cmd = "ip link delete {}".format(self.name)
+            print(cmd)
+            p = subprocess.Popen(cmd.split(" "))
+            p.wait()
             # creation de l'interface
-            p = subprocess.Popen(["vconfig", "add", Interface._trunk_if.name, "%d" % self.vlan])
+            # ip link add link eth2 name eth2.10 type vlan id 10
+            cmd = "ip link add link {} name {} type vlan id {}".format(Interface._trunk_if.name, self.name, self.vlan)
+            print(cmd)
+            p = subprocess.Popen(cmd.split(" "))
             if p.wait() != 0:
                 return False
-            p = subprocess.Popen(["ifconfig", self.name, self.ip, "netmask", self.mask, "up"])
+            # ip addr add 172.16.10.254/255.255.255.0 broadcast 172.16.10.255 dev eth2.10
+            cmd = "ip address add {}/{} broadcast {} dev {}".format(self.ip, self.mask, self.broadcast, self.name)
+            print(cmd)
+            p = subprocess.Popen(cmd.split(" "))
+            if p.wait() != 0:
+                return False
+            # ip link set dev eth2.10 up
+            cmd = "ip link set dev {} up".format(self.name)
+            print(cmd)
+            p = subprocess.Popen(cmd.split(" "))
             if p.wait() != 0:
                 return False
         return True

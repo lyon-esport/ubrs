@@ -1,4 +1,3 @@
-#!/usr/bin/env python2.6
 # -*- encoding: utf-8 -*-
 #
 # Etienne Glossi - Avril 2012 - etienne.glossi@gmail.com
@@ -7,7 +6,7 @@
 
 from tornado.web import RequestHandler
 import config as configuration
-
+import os
 
 # Handler Generique
 class BaseHandler(RequestHandler):
@@ -21,7 +20,7 @@ class BaseHandler(RequestHandler):
 class MainPage(BaseHandler):
     # HTTP GET
     def get(self):
-        self.render("/opt/UBRS/templates/index.html",
+        self.render(os.getcwd() + "/templates/index.html",
             ports=self.relay.get_ports(),
             ifaces=self.relay.get_ifaces(),
             system_ifaces = self.relay.netifaces(),

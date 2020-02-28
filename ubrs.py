@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.6
+#!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 #
 # Etienne Glossi - Avril 2012 - etienne.glossi@gmail.com
@@ -7,7 +7,7 @@
 
 import tornado.ioloop
 import sys
-import os.path
+import os, os.path
 import handler
 import config
 from os import environ
@@ -22,7 +22,7 @@ class UBRSWebDaemon(Daemon):
         Daemon.__init__(self, 'ubrs.pid')
         self.ip = config.HTTP_IP
         self.port = config.HTTP_PORT
-        self.relay = Relay(config.UBR_PATH)
+        self.relay = Relay(os.path.join(os.getcwd(), config.UBR_PATH))
         self.app = UBRSApplication(self.relay)
 
     # methode principale, appele par start()
@@ -34,6 +34,7 @@ class UBRSWebDaemon(Daemon):
     # on arrete proprement le serveur
     def stop(self):
         tornado.ioloop.IOLoop.instance().stop()
+        self.relay.stop_and_clean()
         Daemon.stop(self)
 
 
@@ -54,8 +55,8 @@ class UBRSApplication(Application):
             (r"/if/remove",   handler.RemoveIfHandler,   dict(relay=relay)),
         ]
         settings = dict(
-            template_path=os.path.join(os.path.dirname(__file__), "templates"),
-            static_path=os.path.join(os.path.dirname(__file__), "static"),
+            template_path=os.path.join(os.getcwd(), "templates"),
+            static_path=os.path.join(os.getcwd(), "static"),
             autoescape="xhtml_escape",
             debug=config.DEBUG,
         )
@@ -65,7 +66,7 @@ class UBRSApplication(Application):
 #### Main ####
 if __name__ == "__main__":
     if environ['USER'] != "root" and environ['UID'] != "0":
-        print "Uniquement root peut lancer le serveur !"
+        print("Uniquement root peut lancer le serveur !")
         exit(1)
 
     ubr = UBRSWebDaemon()
@@ -80,14 +81,15 @@ if __name__ == "__main__":
     elif action == "start":
         ubr.start()
     elif action != "":
-        print "Commande inconnue %s ! Uniquement 'start', 'restart' et 'stop' sont acceptés." % action
+        print("Commande inconnue %s ! Uniquement 'start', 'restart' et 'stop' sont acceptés." % action)
 
     # Foreground start
     if not ubr.isrunning():
-        print "Demarrage en mode normal..."
+        print("Demarrage en mode normal...")
         try:
             ubr.run()
         except KeyboardInterrupt:
-            print "stopping !"
+            ubr.stop()
+            print("stopping !")
     else:
-        print "Déjà en cours d'execution (pid: %d)..." % ubr.isrunning()
+        print("Déjà en cours d'execution (pid: %d)..." % ubr.isrunning())

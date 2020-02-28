@@ -1,4 +1,3 @@
-#!/usr/bin/env python2.6
 # -*- encoding: utf-8 -*-
 #
 # Etienne Glossi - Avril 2012 - etienne.glossi@gmail.com
@@ -14,11 +13,10 @@ DEBUG = True
 HTTP_PORT = 80
 
 # Adresse IP sur laquelle le serveur sera en écoute
-#HTTP_IP = "10.31.77.254"
-HTTP_IP = "172.16.2.254"
+HTTP_IP = "10.31.77.254"
 
-# Emplacement absolu de l'executable udb-broadcast-relay
-UBR_PATH = "/opt/broadcast-relay/udp-broadcast-relay"
+# Emplacement relatif de l'executable udb-broadcast-relay
+UBR_PATH = "broadcast-relay/udp-broadcast-relay"
 #UBR_PATH = "/usr/bin/true"
 
 # Adresse IP par défaut d'une interface dans un VLAN. %d représente le numéro vlan

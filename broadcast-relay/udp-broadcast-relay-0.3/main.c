@@ -7,9 +7,9 @@ udp-broadcast-relay
 Copyright (c) 2003 Joachim Breitner <mail@joachim-breitner.de>
 
 Based upon:
-udp_broadcast_fw ; Forwards UDP broadcast packets to all local 
+udp_broadcast_fw ; Forwards UDP broadcast packets to all local
 	interfaces as though they originated from sender
-	
+
 Copyright (C) 2002  Nathan O'Sullivan
 
 This program is free software; you can redistribute it and/or
@@ -25,7 +25,7 @@ GNU General Public License for more details.
 
 Thanks:
 
-Arny <cs6171@scitsc.wlv.ac.uk> 
+Arny <cs6171@scitsc.wlv.ac.uk>
 - public domain UDP spoofing code
 http://www.netfor2.com/ip.htm
 - IP/UDP packet formatting info
@@ -38,7 +38,7 @@ http://www.netfor2.com/ip.htm
 #define UDPHEADER_LEN 8
 #define HEADER_LEN (IPHEADER_LEN + UDPHEADER_LEN)
 #define TTL_ID_OFFSET 64
- 
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in_systm.h>
@@ -49,10 +49,19 @@ http://www.netfor2.com/ip.htm
 #include <string.h>
 #include <arpa/inet.h>
 #include <stdio.h>
+/* ==> https://github.com/thom311/libnl/pull/73
 #include <linux/if.h>
+*/
 #include <sys/ioctl.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+/* if_nametoindex() */
+#include <net/if.h>
+/* getifaddrs() */
+#include <ifaddrs.h>
+/* getnameinfo() */
+#include <netdb.h>
 
 /* Etienne Glossi - PACKET_MR_PROMISC */
 #include <netpacket/packet.h>
@@ -80,7 +89,7 @@ int main(int argc,char **argv)
 {
 	/* Debugging, forking, other settings */
 	int debug, forking;
-	
+
 	u_int16_t port;
 	u_char id;
 	u_char ttl;
@@ -90,9 +99,10 @@ int main(int argc,char **argv)
 	int fd,rcv;
 
 	/* Structure holds info on local interfaces */
-	struct ifreq reqbuf;
 	int maxifs;
-		
+	struct ifaddrs *ifaddr, *ifa;
+	struct sockaddr_in *if_dest_addr;
+
 	/* Address broadcast packet was sent from */
 	struct sockaddr_in rcv_addr;
 
@@ -103,7 +113,7 @@ int main(int argc,char **argv)
 		u_short mr_alen;
 		u_char	mr_address[8];
 	} mr;
-	
+
 	/* Incoming message read via rcvsmsg */
 	struct msghdr rcv_msg;
 	struct iovec iov;
@@ -111,21 +121,21 @@ int main(int argc,char **argv)
 
 	/* various variables */
 	int x=1, len;
-	
+
 	struct cmsghdr *cmsg;
 	int *ttlptr=NULL;
 	int rcv_ifindex = 0;
 
-	iov.iov_base = gram+ HEADER_LEN; 
+	iov.iov_base = gram+ HEADER_LEN;
 	iov.iov_len = 4006 - HEADER_LEN - 1;
-	
+
 	rcv_msg.msg_name = &rcv_addr;
 	rcv_msg.msg_namelen = sizeof(rcv_addr);
 	rcv_msg.msg_iov = &iov;
 	rcv_msg.msg_iovlen = 1;
 	rcv_msg.msg_control = pkt_infos;
 	rcv_msg.msg_controllen = sizeof(pkt_infos);
-	
+
 
 	/* parsing the args */
 	if(argc < 5)
@@ -139,14 +149,14 @@ int main(int argc,char **argv)
 			"-d enables Debugging, -f forces forking to background\n");
 		exit(1);
 	};
-	
+
 	if ((debug = (strcmp(argv[1],"-d") == 0)))
 	{
 		argc--;
 		argv++;
 		DPRINT ("Debugging Mode enabled\n");
 	};
-	
+
 	if ((forking = (strcmp(argv[1],"-f") == 0)))
 	{
 		argc--;
@@ -172,7 +182,7 @@ int main(int argc,char **argv)
 	/* The is is used to detect packets we just sent, and is stored in the "ttl" field,
 	 * which is not used with broadcast packets. Beware when using this with
 	 * non-broadcast-packets */
-	
+
 	if ((port = atoi(argv[1])) == 0)
 	{
 		fprintf (stderr,"Port argument not valid\n");
@@ -180,70 +190,66 @@ int main(int argc,char **argv)
 	}
 	argc--;
 	argv++;
-	
+
 	DPRINT ("ID: %i (ttl: %i), Port %i\n",id,ttl,port);
 
-
-	/* We need to find out what IP's are bound to this host - set up a temporary socket to do so */
- 	if((fd=socket(AF_INET,SOCK_RAW,IPPROTO_RAW)) < 0)
-	{
-  		perror("socket");
-		fprintf(stderr,"You must be root to create a raw socket\n");
-  		exit(1);
-  	};
+  /* List all the interfaces on the system */
+	if (getifaddrs(&ifaddr) == -1) {
+		perror("getifaddrs");
+		exit(EXIT_FAILURE);
+  }
 
 	/* For each interface on the command line */
 	for (maxifs=0;argc>1;argc--,argv++)
 	{
-		int ioctl_request; 
+		/*
+		list interfaces on the system
+		if current interface not in command line, continue
+		*/
 
-		strncpy(reqbuf.ifr_name,argv[1],IFNAMSIZ);
-
-		/* Request index for this interface */
-		if (ioctl(fd,SIOCGIFINDEX, &reqbuf) < 0) {
-			perror("ioctl(SIOCGIFINDEX)");
+		/*
+		then we check if we found all interfaces
+		*/
+		/* get interface index */
+		int if_index = if_nametoindex(argv[1]);
+		if (if_index <= 0) {
+			fprintf (stderr,"Interface not found: %s\n",argv[1]);
 			exit(1);
 		}
-		
-		/* Save the index for later use */	
-		ifs[maxifs].ifindex = reqbuf.ifr_ifindex;
 
-		/* Etienne Glossi - Listen in promiscous mode */
-		reqbuf.ifr_flags |= IFF_PROMISC;
+		/* Save the index for later use */
+		ifs[maxifs].ifindex = if_index;
 
-		/* Request flags for this interface */
-		if (ioctl(fd,SIOCGIFFLAGS, &reqbuf) < 0) {
-			perror("ioctl(SIOCGIFFLAGS)");
-			exit(1);
-		}
+		/* Get the IPv4 interface */
+		for ( ifa = ifaddr;
+					ifa != NULL &&
+						!(ifa->ifa_addr->sa_family == AF_INET &&
+						strncmp(ifa->ifa_name, argv[1], strlen(argv[1])) == 0);
+					ifa = ifa->ifa_next);
 
 		/* if the interface is not up or a loopback, ignore it */
-		if ((reqbuf.ifr_flags & IFF_UP) == 0 ||
-      		    (reqbuf.ifr_flags & IFF_LOOPBACK) )
+		if ( ifa == NULL ||
+				(ifa->ifa_flags & IFF_UP) == 0 ||
+      	(ifa->ifa_flags & IFF_LOOPBACK) ) {
+			printf("Ignoring interface %s\n", argv[1]);
 			continue;
+		}
 
 		/* find the address type we need */
-		if (reqbuf.ifr_flags & IFF_BROADCAST)
-			ioctl_request = SIOCGIFBRDADDR;
-		else 
-			ioctl_request = SIOCGIFDSTADDR;
-				
-
-		/* Request the broadcast/destination address for this interface */
-  		if (ioctl(fd,ioctl_request, &reqbuf) < 0) {
-      			perror("ioctl(SIOCGIFBRDADDR)");
-      			exit(1);
-    		}
+		if (ifa->ifa_flags & IFF_BROADCAST)
+			if_dest_addr = (struct sockaddr_in*)(ifa->ifa_broadaddr);
+		else
+			if_dest_addr = (struct sockaddr_in*)(ifa->ifa_dstaddr);
 
 		/* Save the address for later use */
-		bcopy(	(struct sockaddr_in *)&reqbuf.ifr_addr,
-			&ifs[maxifs].dstaddr,
-			sizeof(struct sockaddr_in) );
+		bcopy( if_dest_addr,
+					 &ifs[maxifs].dstaddr,
+					 sizeof(struct sockaddr_in) );
 
-		DPRINT("%s: %i / %s\n",
-			reqbuf.ifr_name,
+		DPRINT("%s: index=%i / broadcast=%s\n",
+			ifa->ifa_name,
 			ifs[maxifs].ifindex,
-			inet_ntoa(ifs[maxifs].dstaddr.sin_addr) );
+			inet_ntoa(ifs[maxifs].dstaddr.sin_addr));
 
 		/* Set up a one raw socket per interface for sending our packets through */
 		if((ifs[maxifs].raw_socket = socket(AF_INET,SOCK_RAW,IPPROTO_RAW)) < 0)
@@ -278,12 +284,16 @@ int main(int argc,char **argv)
 		/* ... and count it */
 		maxifs++;
 	}
+	if(maxifs == 0) {
+		fprintf(stderr, "No operationnal interfaces founds ! Please check ip network configuration.\n");
+		exit(1);
+	}
 	/* well, we want the max index, actually */
 	maxifs--;
 	DPRINT("found %i interfaces total\n",maxifs+1);
-	
-	/* Free our allocated buffer and close the socket */
-	close(fd);
+
+  /* free our interfaces buffer */
+	freeifaddrs(ifaddr);
 
 	/* Create our broadcast receiving socket */
 	if((rcv=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP)) < 0)
@@ -369,7 +379,7 @@ int main(int argc,char **argv)
 			DPRINT ("Got local packge (TTL %i) on interface %i\n",*ttlptr,rcv_ifindex);
 			continue;
 		}
-		
+
 
 		gram[HEADER_LEN + len] =0;
 		DPRINT("Got remote package:\n");
@@ -377,8 +387,8 @@ int main(int argc,char **argv)
 		DPRINT("TTL:\t\t%i\n",*ttlptr);
 		DPRINT("Interface:\t%i\n",rcv_ifindex);
 		DPRINT("From:\t\t%s:%d\n",inet_ntoa(rcv_addr.sin_addr),rcv_addr.sin_port);
-	
-		/* copy sender's details into our datagram as the source addr */	
+
+		/* copy sender's details into our datagram as the source addr */
 		bcopy(&(rcv_addr.sin_addr.s_addr),(gram+12),4);
 	  	*(u_short*)(gram+20)=(u_short)rcv_addr.sin_port;
 
@@ -392,13 +402,13 @@ int main(int argc,char **argv)
 			if (ifs[x].ifindex == rcv_ifindex) continue; /* no bounces, please */
 
 			/* Set destination addr ip - port is set already*/
-			bcopy(&(ifs[x].dstaddr.sin_addr.s_addr),(gram+16),4);	
+			bcopy(&(ifs[x].dstaddr.sin_addr.s_addr),(gram+16),4);
 
 			DPRINT ("Sent to %s:%d on interface %i\n",
 				inet_ntoa(ifs[x].dstaddr.sin_addr), /* dst ip */
 				ntohs(*(u_short*)(gram+22)), /* dst port */
 				ifs[x].ifindex); /* interface number */
-				
+
 			/* Send the packet */
 			if (sendto(ifs[x].raw_socket,
 					&gram,
