@@ -115,7 +115,8 @@ class Relay:
 
     @staticmethod
     def netifaces():
-        return dict((i, netifaces.ifaddresses(i)[netifaces.AF_INET][0]['addr']) for i in netifaces.interfaces() if '.' not in i)
+        return dict((i, netifaces.ifaddresses(i).get(netifaces.AF_INET, [{'addr': ""}])[0]['addr']) \
+            for i in netifaces.interfaces() if '.' not in i and i != 'lo')
 
     @staticmethod
     def trunk():
