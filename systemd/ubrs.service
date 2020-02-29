@@ -11,7 +11,8 @@ ExecStop=/usr/bin/python3 /opt/ubrs/ubrs.py start
 Restart=on-failure
 RestartSec=10s
 PIDFile=/opt/ubrs/ubrs.pid
-# Other restart options: always, on-abort, etc
+StandardOutput=journal
+StandardError=journal+console
 
 [Install]
 WantedBy=default.target
