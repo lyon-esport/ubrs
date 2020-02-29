@@ -19,7 +19,7 @@ from tornado.web import URLSpec, Application
 # Lancement de l'interface de gestion web basée sur Tornado
 class UBRSWebDaemon(Daemon):
     def __init__(self):
-        Daemon.__init__(self, 'ubrs.pid', stdout=sys.stdout, stderr=sys.stderr)
+        Daemon.__init__(self, 'ubrs.pid')
         self.ip = config.HTTP_IP
         self.port = config.HTTP_PORT
         self.relay = Relay(os.path.join(os.getcwd(), config.UBR_PATH))
