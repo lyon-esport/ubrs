@@ -1,0 +1,17 @@
+[Unit]
+Description=UDP Broadcast Relay
+After=network.target
+
+[Service]
+Type=forking
+User=root
+WorkingDirectory=/opt/ubrs
+ExecStart=/usr/bin/python3 /opt/ubrs/ubrs.py start
+ExecStop=/usr/bin/python3 /opt/ubrs/ubrs.py start
+Restart=on-failure
+RestartSec=10s
+PIDFile=/opt/ubrs/ubrs.pid
+# Other restart options: always, on-abort, etc
+
+[Install]
+WantedBy=default.target

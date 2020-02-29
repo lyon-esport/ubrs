@@ -82,14 +82,14 @@ if __name__ == "__main__":
         ubr.start()
     elif action != "":
         print("Commande inconnue %s ! Uniquement 'start', 'restart' et 'stop' sont acceptés." % action)
-
-    # Foreground start
-    if not ubr.isrunning():
-        print("Demarrage en mode normal...")
-        try:
-            ubr.run()
-        except KeyboardInterrupt:
-            ubr.stop()
-            print("stopping !")
-    else:
-        print("Déjà en cours d'execution (pid: %d)..." % ubr.isrunning())
+    elif action == "":
+        # Foreground start
+        if ubr.isrunning():
+            print("Demarrage en mode normal...")
+            try:
+                ubr.run()
+            except KeyboardInterrupt:
+                ubr.stop()
+                print("stopping !")
+        else:
+            print("Déjà en cours d'execution (pid: %d)..." % ubr.isrunning())

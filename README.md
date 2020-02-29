@@ -9,6 +9,9 @@ Made for and by Lyon e-Sport - www.lyon-esport.fr.
 2. Compile udp-broadcast-relay
 `cd broadcast-relay/udp-broadcast-relay-0.3; make; cd -`
 
+3. (optional) To start UBRS at startup:
+`cp systemd/ubrs.service /etc/systemd/system/ubrs.service; systemctl enable ubrs`
+
 ## Configuration
 
 Please update the configuration file `config.py` before using. Note that it starts a
