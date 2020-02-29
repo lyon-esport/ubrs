@@ -17,6 +17,30 @@ Made for and by Lyon e-Sport - www.lyon-esport.fr.
 Please update the configuration file `config.py` before using. Note that it starts a
 webserver on port 80 by default.
 
+### Interface configuration
+
+Example
+
+```
+# The primary network interface for admin
+rename ens224=admin
+allow-hotplug admin
+iface admin inet static
+	address 172.16.2.29/24
+	gateway 172.16.2.1
+	# dns-* options are implemented by the resolvconf package, if installed
+	dns-nameservers 172.16.2.20 8.8.8.8 1.1.1.1
+	dns-search les
+
+# Trunk interface managed by UBRS
+# No given IP
+rename ens192=trunk
+allow-hotplug trunk
+iface trunk inet manual
+	pre-up ip link set dev trunk up
+	post-down ip link set dev trunk down
+```
+
 ## Usage
 
 1. Start the webserver:
